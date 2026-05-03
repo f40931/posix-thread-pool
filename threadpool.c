@@ -52,6 +52,8 @@ task dequeue()
 {
     //[Contributor C TODO : Consumer]
     task t = queue[head];
+    head = (head + 1) % QUEUE_SIZE;
+    count--;
     return t;
 }
 
@@ -60,7 +62,13 @@ void *worker(void *param)
 {
     //[Contributor C TODO : Consumer]
     // execute the task queue
-    
+    while (TRUE) {
+        sem_wait(&sem);
+        pthread_mutex_lock(&lock);
+        task t = dequeue();
+        pthread_mutex_unlock(&lock);
+        execute(t.function, t.data);
+    }
 
     pthread_exit(0);
 }

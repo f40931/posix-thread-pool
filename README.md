@@ -23,7 +23,7 @@
 ## 2. Team Members and Responsibility
 - Chen, Ban-Ban (陳半半): Architect the threads lifecycle => Part A
 - Kuan, Chin-Wei (官京緯): To be defined.
-- Zheng, Nai-Zhen(鄭乃甄): To be defined.
+- Simone Cheng: Consumer => Part C
 ## 3. Implementation Details
 
 #### **Coordination Agreement**
