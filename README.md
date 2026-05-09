@@ -58,7 +58,7 @@
 ---
 
 ## Flow diagram
-```Mermaid
+```mermaid
 graph LR
     subgraph Client_Side [Client / Producer]
         A[Client Program] -- pool_submit --> B(Task Object)
