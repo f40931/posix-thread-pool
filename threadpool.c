@@ -1,5 +1,8 @@
 /**
- * Implementation of thread pool.
+ * Thread Pool Implementation
+ * 
+ * This file implements a fixed-size thread pool using a producer-consumer model.
+ * It utilizes POSIX mutexes for synchronization and semaphores for notification.
  */
 
 #include <pthread.h>
@@ -8,13 +11,15 @@
 #include <semaphore.h>
 #include "threadpool.h"
 
-#define QUEUE_SIZE 10
-#define NUMBER_OF_THREADS 3
+// ----------------------------------------------------------------
+// Section 1: Constants & Data Structures
+// ----------------------------------------------------------------
 
+#define QUEUE_SIZE 10           // maximum number of of pending tasks
+#define NUMBER_OF_THREADS 3     // threads pools size
 #define TRUE 1
-
-// this represents work that has to be 
-// completed by a thread in the pool
+ 
+// Tasks structure for threads
 typedef struct 
 {
     void (*function)(void *p);
@@ -22,51 +27,75 @@ typedef struct
 }
 task;
 
+// ----------------------------------------------------------------
+// Section 2: Shared Resources & Synchronization
+// ----------------------------------------------------------------
 
+// Synchronization primitives
+pthread_mutex_t lock;
+sem_t *sem;
 
+// The work queue
+task queue[QUEUE_SIZE];
 int head=0;
 int tail=0;
 int count=0;
 
-pthread_mutex_t lock;
-sem_t sem;
+pthread_t bee[NUMBER_OF_THREADS];   // Array of worker bee threads
 
-// the work queue
-// task worktodo;
-task queue[QUEUE_SIZE];
+// ----------------------------------------------------------------
+// Section 3: Internal Helper Functions (Queue Operations)
+// ----------------------------------------------------------------
 
-// the worker bee
-pthread_t bee[NUMBER_OF_THREADS];
-
-// insert a task into the queue
-// returns 0 if successful or 1 otherwise, 
+/**
+ * Enqueues a task into the circular buffer.
+ * @return 0 if successful, 1 if the queue is full.
+ */
 int enqueue(task t) 
 {
-    //[Contributor B TODO : Producer]
+    //[Part B: Producer]
+    if(count == QUEUE_SIZE){
+        return 1;
+    }
+
     queue[tail]=t;
+    tail = (tail + 1) % QUEUE_SIZE;     // Circular buffer logic
+    count++;
     return 0;
 }
 
-// remove a task from the queue
+/**
+ * Dequeues a task from the circular buffer.
+ * @return The task at the head of the queue.
+ */
 task dequeue() 
 {
-    //[Contributor C TODO : Consumer]
+    //[Part C: Consumer]
     task t = queue[head];
     head = (head + 1) % QUEUE_SIZE;
     count--;
     return t;
 }
 
-// the worker thread in the thread pool
+// ----------------------------------------------------------------
+// Section 4: Thread Execution & API Implementation
+// ----------------------------------------------------------------
+
+/**
+ * The main loop for each worker thread.
+ * The worker threads wait for the semaphore, fetch a task, and execute it.
+ */
 void *worker(void *param)
 {
-    //[Contributor C TODO : Consumer]
+    //[Part C: Consumer]
     // execute the task queue
     while (TRUE) {
-        sem_wait(&sem);
+        sem_wait(sem);
+
         pthread_mutex_lock(&lock);
         task t = dequeue();
         pthread_mutex_unlock(&lock);
+        
         execute(t.function, t.data);
     }
 
@@ -82,20 +111,34 @@ void execute(void (*somefunction)(void *p), void *p)
 }
 
 /**
- * Submits work to the pool.
+ * Submits work to the pool for asynchronous execution.
+ * @return 0 if successful, 1 if the task could not be added.
  */
 int pool_submit(void (*somefunction)(void *p), void *p)
 {
-    //[Contributor B TODO : Producer]
+    //[Part B: Producer]
 
-    return 0;
+    task t;
+    t.function = somefunction;
+    t.data = p;
+    
+    pthread_mutex_lock(&lock);
+    int result = enqueue(t);
+    pthread_mutex_unlock(&lock);   
+
+    // Signal a worker thread only if the task was successfully added
+    if(result == 0){
+        sem_post(sem);
+    }
+
+    return result;
 }
 
 // initialize the thread pool
 void pool_init(void)
 {
     pthread_mutex_init(&lock, NULL);
-    sem_init(&sem,0,0);
+    sem = sem_open("/pool_sem", O_CREAT, 0644, 0);
 
     for (int i=0; i<NUMBER_OF_THREADS;i++){
         pthread_create(&bee[i],NULL,worker,NULL);
@@ -114,6 +157,7 @@ void pool_shutdown(void)
     }
 
     pthread_mutex_destroy(&lock);
-    sem_destroy(&sem);
+    sem_close(sem);
+    sem_unlink("/pool_sem");
     
 }
